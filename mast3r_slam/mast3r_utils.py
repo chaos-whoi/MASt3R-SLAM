@@ -7,7 +7,6 @@ import mast3r.utils.path_to_dust3r  # noqa
 from dust3r.utils.image import ImgNorm
 from mast3r.model import AsymmetricMASt3R
 from mast3r_slam.retrieval_database import RetrievalDatabase
-from mast3r_slam.config import config
 import mast3r_slam.matching as matching
 
 
@@ -40,18 +39,6 @@ def decoder(model, feat1, feat2, pos1, pos2, shape1, shape2):
     return res1, res2
 
 
-def downsample(X, C, D, Q):
-    downsample = config["dataset"]["img_downsample"]
-    if downsample > 1:
-        # C and Q: (...xHxW)
-        # X and D: (...xHxWxF)
-        X = X[..., ::downsample, ::downsample, :].contiguous()
-        C = C[..., ::downsample, ::downsample].contiguous()
-        D = D[..., ::downsample, ::downsample, :].contiguous()
-        Q = Q[..., ::downsample, ::downsample].contiguous()
-    return X, C, D, Q
-
-
 @torch.inference_mode
 def mast3r_symmetric_inference(model, frame_i, frame_j):
     if frame_i.feat is None:
@@ -75,7 +62,7 @@ def mast3r_symmetric_inference(model, frame_i, frame_j):
     )
     # 4xhxwxc
     X, C, D, Q = torch.stack(X), torch.stack(C), torch.stack(D), torch.stack(Q)
-    X, C, D, Q = downsample(X, C, D, Q)
+    # X, C, D, Q = downsample(X, C, D, Q)
     return X, C, D, Q
 
 
@@ -111,7 +98,7 @@ def mast3r_decode_symmetric_batch(
         torch.stack(D, dim=1),
         torch.stack(Q, dim=1),
     )
-    X, C, D, Q = downsample(X, C, D, Q)
+    # X, C, D, Q = downsample(X, C, D, Q)
     return X, C, D, Q
 
 
@@ -131,7 +118,7 @@ def mast3r_inference_mono(model, frame):
     )
     # 4xhxwxc
     X, C, D, Q = torch.stack(X), torch.stack(C), torch.stack(D), torch.stack(Q)
-    X, C, D, Q = downsample(X, C, D, Q)
+    # X, C, D, Q = downsample(X, C, D, Q)
 
     Xii, Xji = einops.rearrange(X, "b h w c -> b (h w) c")
     Cii, Cji = einops.rearrange(C, "b h w -> b (h w) 1")
@@ -202,7 +189,7 @@ def mast3r_asymmetric_inference(model, frame_i, frame_j):
     )
     # 4xhxwxc
     X, C, D, Q = torch.stack(X), torch.stack(C), torch.stack(D), torch.stack(Q)
-    X, C, D, Q = downsample(X, C, D, Q)
+    # X, C, D, Q = downsample(X, C, D, Q)
     return X, C, D, Q
 
 

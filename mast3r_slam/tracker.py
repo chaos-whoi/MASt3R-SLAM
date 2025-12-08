@@ -8,12 +8,12 @@ from mast3r_slam.geometry import (
     project_calib,
 )
 from mast3r_slam.nonlinear_optimizer import check_convergence, huber
-from mast3r_slam.config import config
 from mast3r_slam.mast3r_utils import mast3r_match_asymmetric
 
 
 class FrameTracker:
-    def __init__(self, model, frames, device):
+    def __init__(self, model, frames, device, config=None):
+        self.config = config
         self.cfg = config["tracking"]
         self.model = model
         self.keyframes = frames
@@ -43,7 +43,7 @@ class FrameTracker:
         # Update keyframe pointmap after registration (need pose)
         frame.update_pointmap(Xff, Cff)
 
-        use_calib = config["use_calib"]
+        use_calib = self.config["use_calib"]
         img_size = frame.img.shape[-2:]
         if use_calib:
             K = keyframe.K

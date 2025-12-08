@@ -4,8 +4,6 @@ from typing import Optional
 import lietorch
 import torch
 from mast3r_slam.mast3r_utils import resize_img
-from mast3r_slam.config import config
-
 
 class Mode(Enum):
     INIT = 0
@@ -30,7 +28,7 @@ class Frame:
     N_updates: int = 0
     K: Optional[torch.Tensor] = None
 
-    def get_score(self, C):
+    def get_score(self, C, config=None):
         filtering_score = config["tracking"]["filtering_score"]
         if filtering_score == "median":
             score = torch.median(C)  # Is this slower than mean? Is it worth it?
@@ -38,7 +36,7 @@ class Frame:
             score = torch.mean(C)
         return score
 
-    def update_pointmap(self, X: torch.Tensor, C: torch.Tensor):
+    def update_pointmap(self, X: torch.Tensor, C: torch.Tensor, config=None):
         filtering_mode = config["tracking"]["filtering_mode"]
 
         if self.N == 0:
@@ -108,7 +106,7 @@ class Frame:
         return self.C / self.N if self.C is not None else None
 
 
-def create_frame(i, img, T_WC, img_size=512, device="cuda:0"):
+def create_frame(i, img, T_WC, img_size=512, device="cuda:0", config=None):
     img = resize_img(img, img_size)
     rgb = img["img"].to(device=device)
     img_shape = torch.tensor(img["true_shape"], device=device)
@@ -218,7 +216,7 @@ class SharedStates:
 
 
 class SharedKeyframes:
-    def __init__(self, manager, h, w, buffer=512, dtype=torch.float32, device="cuda"):
+    def __init__(self, manager, h, w, buffer=512, dtype=torch.float32, device="cuda", config=None):
         self.lock = manager.RLock()
         self.n_size = manager.Value("i", 0)
 
@@ -247,6 +245,8 @@ class SharedKeyframes:
         self.K = torch.zeros(3, 3, device=device, dtype=dtype).share_memory_()
         # fmt: on
 
+        self.config = config
+
     def __getitem__(self, idx) -> Frame:
         with self.lock:
             # put all of the data into a frame
@@ -264,7 +264,7 @@ class SharedKeyframes:
             kf.pos = self.pos[idx]
             kf.N = int(self.N[idx])
             kf.N_updates = int(self.N_updates[idx])
-            if config["use_calib"]:
+            if self.config["use_calib"]:
                 kf.K = self.K
             return kf
 
@@ -317,11 +317,11 @@ class SharedKeyframes:
             return idx
 
     def set_intrinsics(self, K):
-        assert config["use_calib"]
+        assert self.config["use_calib"]
         with self.lock:
             self.K[:] = K
 
     def get_intrinsics(self):
-        assert config["use_calib"]
+        assert self.config["use_calib"]
         with self.lock:
             return self.K

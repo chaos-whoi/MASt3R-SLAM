@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 import mast3r_slam.image as img_utils
-from mast3r_slam.config import config
 import mast3r_slam_backends
 
 
@@ -49,7 +48,7 @@ def prep_for_iter_proj(X11, X21, idx_1_to_2_init):
     return rays_with_grad_img, pts3d_norm, p_init
 
 
-def match_iterative_proj(X11, X21, D11, D21, idx_1_to_2_init=None):
+def match_iterative_proj(X11, X21, D11, D21, idx_1_to_2_init=None, config=None):
     cfg = config["matching"]
     b, h, w = X21.shape[:3]
     device = X11.device
