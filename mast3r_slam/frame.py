@@ -120,7 +120,7 @@ def create_frame(i, img, T_WC, img_size=512, device="cuda:0", config=None):
     return frame
 
 
-class SharedStates:
+class SharedFrame:
     def __init__(self, manager, h, w, dtype=torch.float32, device="cuda"):
         self.h, self.w = h, w
         self.dtype = dtype

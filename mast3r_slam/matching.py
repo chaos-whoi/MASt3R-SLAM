@@ -4,8 +4,8 @@ import mast3r_slam.image as img_utils
 import mast3r_slam_backends
 
 
-def match(X11, X21, D11, D21, idx_1_to_2_init=None):
-    idx_1_to_2, valid_match2 = match_iterative_proj(X11, X21, D11, D21, idx_1_to_2_init)
+def match(X11, X21, D11, D21, idx_1_to_2_init=None, cfg=None):
+    idx_1_to_2, valid_match2 = match_iterative_proj(X11, X21, D11, D21, idx_1_to_2_init, cfg=cfg)
     return idx_1_to_2, valid_match2
 
 
@@ -48,8 +48,7 @@ def prep_for_iter_proj(X11, X21, idx_1_to_2_init):
     return rays_with_grad_img, pts3d_norm, p_init
 
 
-def match_iterative_proj(X11, X21, D11, D21, idx_1_to_2_init=None, config=None):
-    cfg = config["matching"]
+def match_iterative_proj(X11, X21, D11, D21, idx_1_to_2_init=None, cfg=None):
     b, h, w = X21.shape[:3]
     device = X11.device
 

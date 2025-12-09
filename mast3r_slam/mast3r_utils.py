@@ -126,7 +126,7 @@ def mast3r_inference_mono(model, frame):
     return Xii, Cii
 
 
-def mast3r_match_symmetric(model, feat_i, pos_i, feat_j, pos_j, shape_i, shape_j):
+def mast3r_match_symmetric(model, feat_i, pos_i, feat_j, pos_j, shape_i, shape_j, cfg=None):
     X, C, D, Q = mast3r_decode_symmetric_batch(
         model, feat_i, pos_i, feat_j, pos_j, shape_i, shape_j
     )
@@ -145,7 +145,7 @@ def mast3r_match_symmetric(model, feat_i, pos_i, feat_j, pos_j, shape_i, shape_j
     D21 = torch.cat((Dji, Dij), dim=0)
 
     # tic()
-    idx_1_to_2, valid_match_2 = matching.match(X11, X21, D11, D21)
+    idx_1_to_2, valid_match_2 = matching.match(X11, X21, D11, D21, cfg=cfg)
     # toc("Match")
 
     # TODO: Avoid this
@@ -193,7 +193,7 @@ def mast3r_asymmetric_inference(model, frame_i, frame_j):
     return X, C, D, Q
 
 
-def mast3r_match_asymmetric(model, frame_i, frame_j, idx_i2j_init=None):
+def mast3r_match_asymmetric(model, frame_i, frame_j, idx_i2j_init=None, cfg=None):
     X, C, D, Q = mast3r_asymmetric_inference(model, frame_i, frame_j)
 
     b, h, w = X.shape[:-1]
@@ -206,7 +206,7 @@ def mast3r_match_asymmetric(model, frame_i, frame_j, idx_i2j_init=None):
     Qii, Qji = Q[:b], Q[b:]
 
     idx_i2j, valid_match_j = matching.match(
-        Xii, Xji, Dii, Dji, idx_1_to_2_init=idx_i2j_init
+        Xii, Xji, Dii, Dji, idx_1_to_2_init=idx_i2j_init, cfg=cfg
     )
 
     # How rest of system expects it
