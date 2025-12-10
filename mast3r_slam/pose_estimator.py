@@ -17,10 +17,17 @@ from mast3r_slam.nonlinear_optimizer import check_convergence, huber
 def lietorch_to_rigid_tensor(T):
     """Convert a lietorch Sim3 to a 4x4 Sim3 tensor, with scale separate."""
     if isinstance(T, lietorch.Sim3):
-        scale = T.data.squeeze(0)[-1]
+        scale = T.data.squeeze(0)[-1].clone()
         T.data.squeeze(0)[-1] = 1.0  # Set scale to 1
         return T.matrix().squeeze(0), scale
 
+    else:
+        raise TypeError("Input must be a lietorch Sim3 object")
+    
+def lietorch_to_tensor(T):
+    """Convert a lietorch Sim3 to a 4x4 Sim3 tensor."""
+    if isinstance(T, lietorch.Sim3):
+        return T.matrix().squeeze(0)
     else:
         raise TypeError("Input must be a lietorch Sim3 object")
 
@@ -104,8 +111,7 @@ def opt_pose_ray_dist_sim3(cfg, Xf, Xk, Qk, valid):
         if step == cfg["max_iters"] - 1:
             print(f"max iters reached {last_error}")
 
-    T_CkCf, scale = lietorch_to_rigid_tensor(T_CkCf)
-    return T_CkCf, scale
+    return T_CkCf
 
 def opt_pose_calib_sim3(
     cfg, Xf, Xk, Qk, valid, meas_k, valid_meas_k, K, img_size
@@ -154,26 +160,25 @@ def opt_pose_calib_sim3(
         if step == cfg["max_iters"] - 1:
             print(f"max iters reached {last_error}")
 
-    T_CkCf, scale = lietorch_to_rigid_tensor(T_CkCf)
-    return T_CkCf, scale
+    return T_CkCf
 
 def process_matches(idx_f2k, valid_match_k, Xff, Cff, Qff, Xkf, Ckf, Qkf,
                     frame_f, frame_k, mast3r_pose_cfg, mast3r_img_shape, calib=None):
     # Get rid of batch dim
-    idx_f2k = idx_f2k[0]
+    idx_f2k_0 = idx_f2k[0]
     valid_match_k = valid_match_k[0]
 
-    Qk = torch.sqrt(Qff[idx_f2k] * Qkf)
+    Qk = torch.sqrt(Qff[idx_f2k_0] * Qkf)
 
     Xf, Xk, Cf, Ck, meas_k, valid_meas_k = get_points_poses(
-        frame_f, frame_k, idx_f2k, mast3r_img_shape, calib=calib, depth_eps=mast3r_pose_cfg["depth_eps"]
+        frame_f, frame_k, idx_f2k_0, mast3r_img_shape, calib=calib, depth_eps=mast3r_pose_cfg["depth_eps"]
     )
     return Xf, Xk, Cf, Ck, Qk, meas_k, valid_meas_k, valid_match_k
 
 
 def estimate_mast3r_tf(Xf, Xk, Cf, Ck, Qk, meas_k, valid_meas_k, valid_match_k, 
                        mast3r_pose_cfg, mast3r_img_shape, calib=None):
-    """Estimate the transform from  of frame f with respect to frame k (T_CkCf)."""
+    """Estimate the transform of frame f with respect to frame k (T_CkCf)."""
     cfg = mast3r_pose_cfg
 
     # Get valid
@@ -184,25 +189,26 @@ def estimate_mast3r_tf(Xf, Xk, Cf, Ck, Qk, meas_k, valid_meas_k, valid_match_k,
 
     valid_opt = valid_match_k & valid_Cf & valid_Ck & valid_Q
 
-    match_frac = valid_opt.sum() / valid_opt.numel()
-    if match_frac < cfg["min_match_frac"]:
-        print(f"Skipped frame due to insufficient match fraction {match_frac}")
-        return None
+    # match_frac = valid_opt.sum() / valid_opt.numel()
+    # if match_frac < cfg["min_match_frac"]:
+    #     print(f"Skipped frame due to insufficient match fraction {match_frac}")
+    #     return None
 
     try:
         if calib is None:
-            T_CkCf, scale = opt_pose_ray_dist_sim3(
+            T_CkCf = opt_pose_ray_dist_sim3(
                 cfg, Xf, Xk, Qk, valid_opt,
             )
         else:
-            T_CkCf, scale = opt_pose_calib_sim3(
+            T_CkCf = opt_pose_calib_sim3(
                 cfg, Xf, Xk, Qk, valid_opt, meas_k, valid_meas_k, calib, mast3r_img_shape,
             )
     except Exception as e:
         print(f"Cholesky failed, did not estimate mast3r tf")
         return None
     
-    return T_CkCf, scale
+    # T_CkCf, scale = lietorch_to_rigid_tensor(T_CkCf)
+    return lietorch_to_tensor(T_CkCf)
 
 def construct_initial_tf(T_CkCf_mast3r, T_WCf_meas, T_WCk_meas):
     """First keyframe aligns with T_WCf_meas, with the scale set to the 
@@ -218,9 +224,6 @@ def construct_initial_tf(T_CkCf_mast3r, T_WCf_meas, T_WCk_meas):
     T_WCf_meas = T_WCf_meas.squeeze(0)
     T_WCk_meas = T_WCk_meas.squeeze(0)
 
-    print(T_WCf_meas)
-    print(T_WCk_meas)
-
     T_CkCf_meas = T_WCk_meas.inverse() @ T_WCf_meas
 
     opt_R = T_WCf_meas[:3, :3]
@@ -229,11 +232,6 @@ def construct_initial_tf(T_CkCf_mast3r, T_WCf_meas, T_WCk_meas):
     mast3r_trans = torch.norm(T_CkCf_mast3r[:3, 3:])
     meas_trans = torch.norm(T_CkCf_meas[:3, 3:])
     opt_S = meas_trans / mast3r_trans
-
-    print("DEBUG: Initial mast3r TF construction")
-    print(meas_trans)
-    print(mast3r_trans)
-    print(opt_S)
 
     T_WCf_opt = torch.eye(4, device=T_CkCf_mast3r.device, dtype=T_CkCf_mast3r.dtype)
     T_WCf_opt[:3, :3] = opt_R * opt_S
