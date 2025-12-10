@@ -176,23 +176,10 @@ def process_matches(idx_f2k, valid_match_k, Xff, Cff, Qff, Xkf, Ckf, Qkf,
     return Xf, Xk, Cf, Ck, Qk, meas_k, valid_meas_k, valid_match_k
 
 
-def estimate_mast3r_tf(Xf, Xk, Cf, Ck, Qk, meas_k, valid_meas_k, valid_match_k, 
+def estimate_mast3r_tf(Xf, Xk, Qk, valid_opt, meas_k, valid_meas_k, 
                        mast3r_pose_cfg, mast3r_img_shape, calib=None):
     """Estimate the transform of frame f with respect to frame k (T_CkCf)."""
     cfg = mast3r_pose_cfg
-
-    # Get valid
-    # Use canonical confidence average
-    valid_Cf = Cf > cfg["C_conf"]
-    valid_Ck = Ck > cfg["C_conf"]
-    valid_Q = Qk > cfg["Q_conf"]
-
-    valid_opt = valid_match_k & valid_Cf & valid_Ck & valid_Q
-
-    # match_frac = valid_opt.sum() / valid_opt.numel()
-    # if match_frac < cfg["min_match_frac"]:
-    #     print(f"Skipped frame due to insufficient match fraction {match_frac}")
-    #     return None
 
     try:
         if calib is None:
